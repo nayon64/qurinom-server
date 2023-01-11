@@ -4,9 +4,11 @@ const jwt = require("jsonwebtoken")
 const { MongoClient, ServerApiVersion,ObjectId } = require("mongodb");
 require("dotenv").config();
 
+
 const port = process.env.PORT || 5000;
 const app = express();
 
+// middle ware 
 app.use(cors());
 app.use(express.json());
 
@@ -17,6 +19,27 @@ const client = new MongoClient(uri, {
   useUnifiedTopology: true,
   serverApi: ServerApiVersion.v1,
 });
+
+
+// varify Token
+function verifyJWT(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return res.status(401).send("unauthorized access");
+  }
+
+  // get the token 
+  const token = authHeader.split(" ")[1];
+
+  jwt.verify(token, process.env.SECRET_ACCESS_TOKEN, function (err, decoded) {
+    if (err) {
+      return res.status(403).send({ message: "forbidden access" });
+    }
+    req.decoded = decoded;
+    next();
+  });
+}
+
 
 async function run() {
   // data collection
@@ -37,7 +60,7 @@ async function run() {
     res.status(403).send({ accessToken: "" });
   });
 
-  // add user in database 
+  // add new user in database 
   app.post("/user", async (req, res) => {
     const user = req.body;
     const uid = user.userUID;
@@ -51,22 +74,23 @@ async function run() {
     }
   });
 
-  // add new user in database
-  app.get("/user", async (req, res) => {
-    const query = {};
-    const result = await blogsCollection.find(query).toArray();
-    res.send(result);
-  });
-
   // add a new post
-  app.post("/post", async (req, res) => {
+  app.post("/post", verifyJWT, async (req, res) => {
     const message = req.body;
     const result = await postsCollection.insertOne(message);
     res.send(result);
   });
 
+  //  post delete api  
+  app.delete("/post", verifyJWT, async (req, res) => {
+    const id = req.query._id
+    const query = { _id: ObjectId(id) }
+    const result = await postsCollection.deleteOne(query)
+    res.send(result)
+  })
+
   // get all post
-  app.get("/posts", async (req, res) => {
+  app.get("/posts",verifyJWT, async (req, res) => {
     const query = {};
     const posts = await postsCollection
       .find(query)
@@ -76,7 +100,7 @@ async function run() {
   });
 
   // post update
-  app.put("/post", async (req, res) => {
+  app.put("/post",verifyJWT, async (req, res) => {
     const id = req.query.id;
     const query = { _id: ObjectId(id) };
     const post = req.body;
@@ -89,15 +113,14 @@ async function run() {
     };
 
     const result = await postsCollection.updateOne(query, updateDoc, options);
-    console.log(post, id);
     res.send(result);
   });
 
   // singleuser posts
-  app.get("/userPosts", async (req, res) => {
+  app.get("/userPosts",verifyJWT, async (req, res) => {
     const email = req.query.email;
     const query = { authorEmail: email };
-    const userPosts = await postsCollection.find(query).toArray();
+    const userPosts = await postsCollection.find(query).sort({ publishedDate: -1 }).toArray();
     res.send(userPosts);
   });
 }
