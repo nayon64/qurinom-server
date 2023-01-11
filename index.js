@@ -1,6 +1,6 @@
 const express = require("express");
 const cors = require("cors");
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion,ObjectId } = require("mongodb");
 require("dotenv").config();
 
 const port = process.env.PORT || 5000;
@@ -52,8 +52,34 @@ async function run() {
   // get all post 
   app.get("/posts", async (req, res) => {
     const query = {}
-    const posts = await postsCollection.find(query).toArray()
+    const posts = await postsCollection.find(query).sort({ publishedDate: -1 }).toArray()
     res.send(posts)
+  })
+
+  // post update 
+  app.put("/post", async (req, res) => {
+    const id = req.query.id
+    const query ={_id:ObjectId(id)}
+    const post = req.body
+    const options = { upsert: true };
+    const updateDoc = {
+      $set: {
+        message: post.message,
+        publishedDate:post.date
+      }
+    }
+
+    const result = await postsCollection.updateOne(query,updateDoc,options)
+    console.log(post,id)
+    res.send(result)
+  })
+
+  // singleuser posts 
+  app.get("/userPosts", async (req, res) => {
+    const email = req.query.email
+    const query = { authorEmail: email };
+    const userPosts = await postsCollection.find(query).toArray()
+    res.send(userPosts)
   })
 
 
