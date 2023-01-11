@@ -20,6 +20,7 @@ const client = new MongoClient(uri, {
 async function run() {
   // data collection
   const usersCollection = client.db("qurinom").collection("users");
+  const postsCollection = client.db("qurinom").collection("posts");
 
   app.post("/user", async (req, res) => {
     const user = req.body;
@@ -34,11 +35,29 @@ async function run() {
     }
   });
 
+  // add new user in database 
   app.get("/user", async (req, res) => {
     const query = {};
     const result = await blogsCollection.find(query).toArray();
     res.send(result);
   });
+
+  // add a new post 
+  app.post("/post", async (req, res) => {
+    const message = req.body
+    const result = await postsCollection.insertOne(message)
+    res.send(result)
+  })
+
+  // get all post 
+  app.get("/posts", async (req, res) => {
+    const query = {}
+    const posts = await postsCollection.find(query).toArray()
+    res.send(posts)
+  })
+
+
+
 }
 run().catch(console.dir);
 
